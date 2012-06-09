@@ -1,0 +1,35 @@
+extends layout
+
+block content
+    .row
+        .span2
+            .well
+                ul.nav.nav-list
+                    li.nav-header Metrics
+                    li xhprof
+        .span10
+            .tabbable
+                ul.nav.nav-tabs
+                    li.active
+                        a(href='#xhprof', data-toggle='tab') Last run
+                    li
+                        a(href='#xhprof_diff', data-toggle='tab') Diff
+                    li
+                        a(href='#xhprof_chain', data-toggle='tab') Chain (<span data-chain>-</span>)
+
+                .tab-content
+                    .tab-pane.active#xhprof
+                        iframe(src='about:blank', data-xhprof='run')
+                    .tab-pane.active#xhprof_diff
+                        iframe(src='about:blank', data-xhprof='diff')
+                    .tab-pane#xhprof_chain
+                        iframe(src='about:blank', data-xhprof='chain')
+
+block scripts
+    script(src='/socket.io/socket.io.js')
+    script(src='/boot.js')
+    script
+        $(".tabbable a").on("click", function(e) {
+            e.preventDefault();
+            $(this).tab('show');
+        });
