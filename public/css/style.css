@@ -2,3 +2,9 @@
     width:99%;
     min-height:1000px;
 }
+
+.bar {
+    width:20px;
+    float:left;
+    position:relative;
+}

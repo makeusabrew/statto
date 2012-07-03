@@ -2,6 +2,7 @@
 # the hit here and map physical files to arbitrary strings instead
 viewMap =
     "xhprof" : require "./views/xhprof.coffee"
+    "chart"  : require "./views/chart.coffee"
 
 View =
     render: (view, data) ->

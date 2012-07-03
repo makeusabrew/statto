@@ -1,7 +1,8 @@
 _socket    = null
 _connected = false
 
-PageController = require "./controllers/page"
+PageController  = require "./controllers/page"
+ChartController = require "./controllers/chart"
 
 lastPacket = null
 
@@ -15,8 +16,9 @@ Client =
             _connected = true
 
         _socket.on "message", (data) ->
-            Chart.updateResponseTime({"time": data.timestamp, "value": data.msec})
             PageController.updateXhprof data
+
+            ChartController.addRun data
 
             # this is just a POC - store the last packet for the handler below
             lastPacket = data
@@ -28,6 +30,6 @@ Client =
 
             # this is a bit dirty, just for the POC it'll do - we re-call the draw method
             # to make sure our iframes are all up to date
-            PageController.updateXhprof lastPacket
+            PageController.updateXhprof lastPacket if lastPacket
 
 module.exports = Client
