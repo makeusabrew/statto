@@ -9,17 +9,27 @@
                 height:400px;
             }
 
-            .median {
+            .mean {
                 position:absolute;
                 width:100%;
-                height:1px;
-                background:black;
+                height:18px;
                 top:-1px;
+                border-bottom:1px solid blue;
+                text-align:right;
+            }
+
+            .percentile {
+                position:absolute;
+                width:100%;
+                height:18px;
+                top:-1px;
+                border-bottom:1px solid green;
+                text-align:right;
             }
 
             .point {
                 width:7px;
-                background:red;
+                background:gray;
                 display:inline-block;
                 border-right:1px solid #aaa;
             }
@@ -28,7 +38,8 @@
     <body>
         <div class=wrapper>
             <div class=chart>
-                <div class=median></div>
+                <div class=mean>Avg: <span>-</span></div>
+                <div class=percentile>98th: <span>-</span></div>
             </div>
         </div>
         <script src="/socket.io/socket.io.js"></script>
@@ -41,11 +52,24 @@
             var maxHeight  = chart.height();
             var totalCount = 0;
             var totalMsec  = 0;
+            var readings   = [];
+
+            var percentile = function(N, P) {
+                //
+                var n = parseInt(Math.round(P * N.length + 0.5));
+                if (n > 1) {
+                    return N[n-2];
+                }
+                return 0;
+            }
+
             socket.on("message", function(data) {
                 var msec = data.msec;
 
                 totalCount ++;
                 totalMsec += msec;
+
+                readings.push(msec);
 
                 if (msec > currentMax) {
                     // rescale the entire graph
@@ -79,9 +103,18 @@
                 //point.slideDown("fast");
                 point.fadeIn("slow");
 
-                var median = totalMsec / totalCount;
-                var pos = maxHeight - ((median / currentMax) * maxHeight);
-                $(".median").css("top", pos+"px");
+                var mean = totalMsec / totalCount;
+                var pos = maxHeight - ((mean / currentMax) * maxHeight);
+                pos -= 18;
+                $(".mean").css("top", pos+"px");
+                $(".mean span").text(Math.round(mean, 1));
+
+                var pc = percentile(readings.sort(), 0.98);
+
+                var pos = maxHeight - ((pc / currentMax) * maxHeight);
+                pos -= 18;
+                $(".percentile").css("top", pos+"px");
+                $(".percentile span").text(Math.round(pc, 1));
             });
         </script>
     </body>
