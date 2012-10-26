@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Statto</title>
+        <style type=text/css>
+            .chart {
+                position:relative;
+                border:1px solid black;
+                height:400px;
+            }
+
+            .metric {
+                position:absolute;
+                width:100%;
+                height:18px;
+                top:-19px;
+                text-align:right;
+            }
+
+            .metric-mean {
+                border-bottom:1px solid blue;
+            }
+
+            .metric-percentile {
+                border-bottom:1px solid green;
+            }
+
+            .point {
+                width:7px;
+                background:gray;
+                display:inline-block;
+                border-right:1px solid #aaa;
+                cursor:pointer;
+            }
+
+            .point:hover {
+                background:#ff9;
+            }
+
+            .wrapper {
+                margin-top:2em;
+            }
+        </style>
+    </head>
+    <body>
+        <div class=wrapper>
+            <div class=chart>
+                <div class="metric metric-max"><span>-</span></div>
+                <div class="metric metric-mean">Mean: <span>-</span></div>
+                <div class="metric metric-percentile">98th: <span>-</span></div>
+            </div>
+        </div>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+        <script>
+            var socket = io.connect();
+
+            var currentMax = 0;
+            var chart      = $(".chart");
+            var maxHeight  = chart.height();
+            var totalCount = 0;
+            var totalMsec  = 0;
+            var readings   = [];
+
+            var percentile = function(N, P) {
+                //
+                var n = parseInt(Math.round(P * N.length + 0.5));
+                if (n > 1) {
+                    return N[n-2];
+                }
+                return 0;
+            }
+
+            function getScaledY(val) {
+                return maxHeight - ((val / currentMax) * maxHeight);
+            }
+
+            socket.on("message", function(data) {
+                var msec = data.msec;
+
+                totalCount ++;
+                totalMsec += msec;
+
+                readings.push(msec);
+
+                if (msec > currentMax) {
+
+                    currentMax = msec;
+
+                    // rescale the entire graph
+                    $(".point").each(function() {
+                        var cHeight = $(this).attr("data-msec");
+                        var newHeight = (cHeight / currentMax) * maxHeight;
+                        $(this).animate({
+                            "height":newHeight
+                        });
+                        //$(this).height(newHeight);
+                    });
+                }
+
+
+                //console.log(data);
+
+                var height = (msec / currentMax) * maxHeight;
+
+                var point = $("<div class=point></div>");
+                point.attr("data-msec", msec);
+                point.attr("data-run", data.run_id);
+                chart.append(point);
+
+                point.hide();
+                point.height(height);
+                point.fadeIn("slow");
+
+                var mean = totalMsec / totalCount;
+                var pos = getScaledY(mean) - $(".metric-mean").height();
+
+                $(".metric-mean").css("top", pos+"px");
+                $(".metric-mean span").text(Math.round(mean, 1));
+
+                var pc = percentile(readings.sort(), 0.98);
+                var pos = getScaledY(pc) - $(".metric-percentile").height();
+
+                $(".metric-percentile").css("top", pos+"px");
+                $(".metric-percentile span").text(Math.round(pc, 1));
+
+                var pos = getScaledY(currentMax) - $(".metric-max").height();
+
+                $(".metric-max").css("top", pos+"px");
+                $(".metric-max span").text(Math.round(currentMax, 2));
+            });
+        </script>
+    </body>
+</html>

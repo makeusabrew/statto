@@ -1,28 +1,22 @@
 #!/usr/local/bin/coffee
 express = require "express"
-app     = express.createServer()
-io      = require("socket.io").listen(app)
+sio     = require "socket.io"
 zmq     = require "zmq"
 
-# who's there?
-app.listen "8765"
+app = express()
+server = app.listen 8765
+
+io = sio.listen server
 
 # config
 app.configure ->
     app.use express.static("#{__dirname}/public")
-    app.set "view engine", "jade"
 
-    app.set "view options", {layout: false}
-    app.set "views", "./server/views"
-
-    bundle = require("browserify")({mount:"/boot.js", entry:"./client/boot.coffee"})
-    app.use bundle
-
-#io.configure ->
-#    io.set "transports", ["websocket"]
+io.configure ->
+    io.set "transports", ["websocket"]
 
 # load routes
-require("./server/routes/url").load app
+# require("./server/routes/url").load app
 
 # wire up sockets
 io.sockets.on "connection", (socket) ->
@@ -32,7 +26,7 @@ io.sockets.on "connection", (socket) ->
     socket.emit "hello"
 
 
-# listen out for inbound queue messages
+# listen out for inbound queue messages from client apps
 pull = zmq.socket "pull"
 pull.bind "tcp://127.0.0.1:3456", ->
 
