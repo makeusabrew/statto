@@ -4,10 +4,15 @@
         <title>Statto</title>
         <style type=text/css>
 
-            body {
-                font-family:courier;
+            html {
+                overflow-y: scroll;
+            }
+
+            html, body {
+                font-family:arial;
                 font-size:12px;
             }
+
             .wrapper {
                 margin:0 auto;
                 width:1000px;
@@ -22,7 +27,7 @@
             }
 
             .chart-data {
-                height:400px;
+                height:250px;
                 width:10000px;
             }
 
@@ -36,6 +41,8 @@
                 width:100%;
                 height:13px;
                 top:-15px;
+                font-family:courier;
+                font-size:12px;
                 /*text-align:right;*/
             }
 
@@ -54,6 +61,13 @@
                 cursor:pointer;
             }
 
+            .point.selected {
+                width:8px;
+                border-right:1px solid #666;
+                border-left:1px solid #666;
+                border-top:1px solid #666;
+            }
+
             .value:hover {
                 background:#77b2e3;
             }
@@ -65,6 +79,21 @@
             .value-db {
                 background:#f99;
             }
+
+            .key {
+                font-weight:bold;
+            }
+
+            .key:after {
+                content:":";
+            }
+
+            iframe {
+                width:100%;
+                height:900px;
+                border:1px solid black;
+            }
+
         </style>
     </head>
     <body>
@@ -76,6 +105,35 @@
                 <div class=chart-data>
                     <div class=chart-inner></div>
                 </div>
+            </div>
+
+            <div class=request-stats style="display:none;">
+                <ul>
+                    <li data-date>
+                        <span class=key>Date</span>
+                        <span class=val></span>
+                    </li>
+                    <li data-request-info>
+                        <span class=key>Request Info</span>
+                        <span class=val></span>
+                    </li>
+                    <li data-total-time>
+                        <span class=key>Total Time (ms)</span>
+                        <span class=val></span>
+                    </li>
+                    <li data-db-time>
+                        <span class=key>Db Time (ms)</span>
+                        <span class=val></span>
+                    </li>
+                    <li data-db-count>
+                        <span class=key>Db Requests</span>
+                        <span class=val></span>
+                    </li>
+                    <li data-breakdown>
+                        <a href=#>Full breakdown</a>
+                    </li>
+                </ul>
+                <iframe data-xhprof seamless></iframe>
             </div>
         </div>
         <script src="/socket.io/socket.io.js"></script>
@@ -190,10 +248,44 @@
                 $(document).on("click", ".point", function(e) {
                     e.preventDefault();
                     var idx = $(this).attr("data-idx");
-                    console.log(
-                        points[idx]
+
+                    $(".point").removeClass("selected");
+                    $(this).addClass("selected");
+
+                    var data = points[idx];
+
+                    $(".request-stats").show();
+
+                    var timestamp = Math.round(data.timestamp) * 1000;
+                    var d = new Date(timestamp);
+
+                    $("[data-date] .val").text(d.toString());
+
+                    var fullUrl = data.request.host + data.request.url.substr(1);
+                    $("[data-request-info] .val").text(
+                        data.request.method+" "+fullUrl
                     );
+
+                    $("[data-total-time] .val").text(data.msec);
+
+                    $("[data-db-time] .val").text(data.db.msec);
+
+                    $("[data-db-count] .val").text(data.db.count);
+
+                    var xhprof = data.xhprof+"/index.php?run="+data.run_id+"&source="+data.source;
+                    $("[data-breakdown] a").attr("href", xhprof);
+
+                    $("[data-xhprof]").attr("src", xhprof);
                 });
+
+                /*
+                $(document).on("click", "[data-breakdown] a", function(e) {
+                    e.preventDefault();
+
+                    $("iframe[data-xhprof]").attr("src", $(this).attr("href"));
+
+                });
+                */
             });
         </script>
     </body>
