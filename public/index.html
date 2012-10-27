@@ -3,18 +3,40 @@
     <head>
         <title>Statto</title>
         <style type=text/css>
+
+            body {
+                font-family:courier;
+                font-size:12px;
+            }
+            .wrapper {
+                margin:0 auto;
+                width:1000px;
+                margin-top:2em;
+            }
+
             .chart {
                 position:relative;
+                overflow:hidden;
                 border:1px solid black;
+                width:1000px;
+            }
+
+            .chart-data {
                 height:400px;
+                width:10000px;
+            }
+
+            .chart-inner {
+                display:inline-block;
+                margin-left:1000px;
             }
 
             .metric {
                 position:absolute;
                 width:100%;
-                height:18px;
-                top:-19px;
-                text-align:right;
+                height:13px;
+                top:-15px;
+                /*text-align:right;*/
             }
 
             .metric-mean {
@@ -26,19 +48,22 @@
             }
 
             .point {
-                width:7px;
-                background:gray;
+                width:4px;
                 display:inline-block;
                 border-right:1px solid #aaa;
                 cursor:pointer;
             }
 
-            .point:hover {
-                background:#ff9;
+            .value:hover {
+                background:#77b2e3;
+            }
+                
+            .value-server {
+                background:#3f8df2;
             }
 
-            .wrapper {
-                margin-top:2em;
+            .value-db {
+                background:#f99;
             }
         </style>
     </head>
@@ -48,6 +73,9 @@
                 <div class="metric metric-max"><span>-</span></div>
                 <div class="metric metric-mean">Mean: <span>-</span></div>
                 <div class="metric metric-percentile">98th: <span>-</span></div>
+                <div class=chart-data>
+                    <div class=chart-inner></div>
+                </div>
             </div>
         </div>
         <script src="/socket.io/socket.io.js"></script>
@@ -56,11 +84,13 @@
             var socket = io.connect();
 
             var currentMax = 0;
-            var chart      = $(".chart");
+            var chart      = $(".chart-data");
             var maxHeight  = chart.height();
             var totalCount = 0;
             var totalMsec  = 0;
-            var readings   = [];
+            var timings    = [];
+            var points     = [];
+            var headRoom   = 0.0;
 
             var percentile = function(N, P) {
                 //
@@ -71,63 +101,99 @@
                 return 0;
             }
 
-            function getScaledY(val) {
-                return maxHeight - ((val / currentMax) * maxHeight);
+            function getTopY(val) {
+                return maxHeight - getScaledHeight(val);
+            }
+
+            function getScaledHeight(val) {
+                var scaledMax = currentMax + (currentMax * headRoom);
+                return (val / scaledMax) * maxHeight;
+            }
+
+            function updateMetric(metric, value) {
+                var elem = $(".metric-"+metric);
+
+                var pos = getTopY(value) - elem.height();
+
+                elem.animate({
+                    "top": pos+"px"
+                }, "fast");
+
+                elem.find("span").text(Math.round(value));
+            }
+
+            function plotValue(type, value) {
+                var elem = $("<div></div>");
+
+                elem
+                .attr("data-value", value)
+                .height(getScaledHeight(value))
+                .addClass("value")
+                .addClass("value-"+type);
+
+                return elem;
             }
 
             socket.on("message", function(data) {
+
+                points.push(data);
                 var msec = data.msec;
 
                 totalCount ++;
                 totalMsec += msec;
 
-                readings.push(msec);
+                timings.push(msec);
 
                 if (msec > currentMax) {
 
                     currentMax = msec;
 
                     // rescale the entire graph
-                    $(".point").each(function() {
-                        var cHeight = $(this).attr("data-msec");
-                        var newHeight = (cHeight / currentMax) * maxHeight;
+                    $("[data-value]").each(function() {
                         $(this).animate({
-                            "height":newHeight
+                            "height": getScaledHeight($(this).attr("data-value"))
                         });
-                        //$(this).height(newHeight);
                     });
                 }
 
+                var other = data.msec - data.db.msec;
+                var db = data.db.msec;
 
-                //console.log(data);
+                var point = $("<div class=point></div>").hide();
+                point.attr("data-idx", points.length-1);
 
-                var height = (msec / currentMax) * maxHeight;
+                point.append(plotValue("server", other));
+                point.append(plotValue("db", db));
 
-                var point = $("<div class=point></div>");
-                point.attr("data-msec", msec);
-                point.attr("data-run", data.run_id);
-                chart.append(point);
+                // have to plot the point before adjusting the chart position
+                chart.find(".chart-inner").append(point);
+                point.fadeIn("fast");
 
-                point.hide();
-                point.height(height);
-                point.fadeIn("slow");
+                var pointWidth = $(".chart-inner").width();
+                var viewportWidth = $(".chart").width();
+                var offset  = viewportWidth - pointWidth;
+                $(".chart-inner").animate({
+                    "margin-left": offset+"px"
+                }, "fast");
+
 
                 var mean = totalMsec / totalCount;
-                var pos = getScaledY(mean) - $(".metric-mean").height();
+                updateMetric("mean", mean);
 
-                $(".metric-mean").css("top", pos+"px");
-                $(".metric-mean span").text(Math.round(mean, 1));
+                var pc = percentile(timings.sort(), 0.98);
+                updateMetric("percentile", pc);
 
-                var pc = percentile(readings.sort(), 0.98);
-                var pos = getScaledY(pc) - $(".metric-percentile").height();
+                updateMetric("max", currentMax);
+            });
 
-                $(".metric-percentile").css("top", pos+"px");
-                $(".metric-percentile span").text(Math.round(pc, 1));
-
-                var pos = getScaledY(currentMax) - $(".metric-max").height();
-
-                $(".metric-max").css("top", pos+"px");
-                $(".metric-max span").text(Math.round(currentMax, 2));
+            $(function() {
+                $(document).on("click", ".point", function(e) {
+                    e.preventDefault();
+                    var idx = $(this).attr("data-idx");
+                    console.log(
+                        points[idx]
+                    );
+                });
             });
         </script>
     </body>
